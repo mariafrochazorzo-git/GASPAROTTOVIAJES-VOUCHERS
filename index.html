@@ -217,7 +217,7 @@ async function saveVoucherCloud(){
     pdf_base64:pdfBlob ? await blobToBase64(pdfBlob) : null,
     importante:false
   };
-  return sbRequest("VOUCHERS",{method:"POST",headers:{"Prefer":"return=representation"},body:JSON.stringify(payload)});
+  return sbRequest("VOUCHERS",{method:"POST",headers:{"Prefer":"return=minimal"},body:JSON.stringify(payload)});
 }
 
 async function installApp(){
