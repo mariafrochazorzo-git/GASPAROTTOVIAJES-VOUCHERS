@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b2a4a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Gasparotto">
+  <title>Gasparotto Viajes · Vouchers</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+  <style>
+    :root{
+      --bg:#f4f6f9;--card:#fff;--text:#1d2733;--muted:#6d7886;
+      --navy:#0b2a4a;--navy2:#143d68;--gold:#b8923a;--line:#d9dee6;
+      --ok:#237a3b;--danger:#b83838;--shadow:0 12px 28px rgba(12,31,54,.09);
+      --radius:18px;
+    }
+    *{box-sizing:border-box}
+    html{-webkit-text-size-adjust:100%}
+    body{
+      margin:0;background:linear-gradient(180deg,#eef2f7 0,#f8fafc 100%);
+      color:var(--text);font:15px/1.45 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
+      min-height:100vh;
+      padding-bottom:env(safe-area-inset-bottom,0);
+    }
+    button,input,select,textarea{font:inherit}
+    button{touch-action:manipulation}
+    .app{max-width:1100px;margin:auto;padding:16px}
+    .shell{min-height:calc(100vh - 32px);display:flex;flex-direction:column}
+    .topbar{
+      display:flex;align-items:center;justify-content:space-between;gap:12px;
+      background:#fff;border:1px solid #e4e8ee;border-radius:16px;padding:12px 14px;
+      box-shadow:var(--shadow);position:sticky;top:8px;z-index:50
+    }
+    .brand{display:flex;align-items:center;gap:10px}
+    .brandmark{width:42px;height:42px;border-radius:12px;background:var(--navy);display:grid;place-items:center;color:#fff;font:700 20px Georgia}
+    .brandtxt{line-height:1.1}.brandtxt b{display:block;color:var(--navy);font-size:18px}.brandtxt span{font-size:11px;color:var(--gold);letter-spacing:.08em}
+    .userchip{font-size:13px;font-weight:800;color:var(--navy);background:#edf2f7;border-radius:999px;padding:8px 12px}
+    .hero{padding:28px 6px 18px;text-align:center}
+    .hero h1{margin:0;color:var(--navy);font:700 clamp(30px,7vw,52px) Georgia,serif}
+    .hero h1 span{color:var(--gold)}
+    .hero p{margin:10px auto 0;color:var(--muted);max-width:560px}
+    .card{background:var(--card);border:1px solid #e1e6ec;border-radius:var(--radius);box-shadow:var(--shadow);padding:18px}
+    .grid-users{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+    .userbtn{
+      border:1px solid #dbe2ea;background:#fff;color:var(--navy);border-radius:16px;padding:20px 10px;
+      font-weight:850;min-height:78px;cursor:pointer;box-shadow:0 6px 16px rgba(13,41,72,.05)
+    }
+    .userbtn:hover,.userbtn:focus{outline:none;border-color:var(--gold);transform:translateY(-1px)}
+    .userbtn.online{grid-column:span 3;background:linear-gradient(135deg,var(--navy),var(--navy2));color:#fff;border:none}
+    .loginbox{max-width:420px;margin:20px auto}
+    .section-title{font-size:13px;font-weight:850;letter-spacing:.04em;color:#fff;background:var(--navy);padding:9px 12px;border-radius:10px 10px 0 0;margin-top:18px}
+    .section{border:1px solid var(--line);border-top:0;background:#fff;padding:12px;border-radius:0 0 10px 10px}
+    .fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+    label{display:block;font-size:12px;font-weight:750;color:#465365;margin-bottom:5px}
+    input,select,textarea{
+      width:100%;border:1px solid #cfd6df;background:#fff;color:#111;border-radius:10px;padding:11px 12px;min-height:44px
+    }
+    input:focus,select:focus,textarea:focus{outline:2px solid rgba(184,146,58,.22);border-color:var(--gold)}
+    textarea{min-height:90px;resize:vertical}
+    .btn{
+      border:0;border-radius:12px;padding:12px 16px;font-weight:850;cursor:pointer;
+      background:var(--navy);color:#fff;min-height:46px
+    }
+    .btn.gold{background:var(--gold)} .btn.gray{background:#6b7684} .btn.ok{background:var(--ok)} .btn.danger{background:var(--danger)}
+    .btn.outline{background:#fff;color:var(--navy);border:1px solid #cfd6df}
+    .btn:disabled{opacity:.55;cursor:not-allowed}
+    .actions{display:flex;gap:10px;flex-wrap:wrap}
+    .actions .btn{flex:1;min-width:140px}
+    .dash{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:18px}
+    .dash .big{min-height:120px;border-radius:18px;font-size:17px}
+    .table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:#fff}
+    table{border-collapse:collapse;width:100%;min-width:900px}
+    th{background:#e8edf4;color:#1b2734;font-size:12px;text-align:left;padding:8px;border-bottom:1px solid var(--line)}
+    td{padding:5px;border-bottom:1px solid #eef1f4}
+    td input{min-width:94px}
+    td:first-child input{min-width:180px}
+    .notice{font-size:13px;color:var(--muted);background:#f6f8fb;border:1px dashed #ccd5df;padding:10px 12px;border-radius:10px}
+    .footerbar{
+      position:sticky;bottom:0;display:flex;gap:10px;background:rgba(255,255,255,.96);backdrop-filter:blur(8px);
+      border-top:1px solid var(--line);padding:10px;margin:18px -16px -16px;z-index:40
+    }
+    .footerbar .btn{flex:1}
+    .hist-tools{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0}
+    .hist-tools input{flex:1;min-width:220px}
+    .hist-card{border:1px solid var(--line);border-radius:14px;padding:14px;margin:10px 0;background:#fff}
+    .hist-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+    .hist-meta{font-size:13px;color:var(--muted);margin-top:7px}
+    .provider-admin{margin-top:10px;background:#fff7e8;border:1px solid #efd7a7;border-radius:10px;padding:10px;font-size:13px}
+    .provider-admin b{color:#7d5a12}
+    .pill{display:inline-block;padding:5px 9px;border-radius:999px;background:#eef3f7;color:var(--navy);font-size:12px;font-weight:800}
+    .error{color:#b52c2c;font-size:13px;margin-top:8px}
+    .success{color:#237a3b;font-size:13px;margin-top:8px}
+    .install{margin-top:12px;display:none}
+    .small{font-size:12px;color:var(--muted)}
+    .logout{background:transparent;border:0;color:var(--navy);font-weight:800;cursor:pointer}
+    .password-wrap{position:relative}.password-wrap input{padding-right:88px}.showpass{position:absolute;right:7px;top:29px;border:0;background:#edf2f7;color:var(--navy);font-size:12px;font-weight:800;border-radius:8px;padding:7px 9px}
+    @media(max-width:720px){
+      .app{padding:10px}.shell{min-height:calc(100vh - 20px)}
+      .topbar{top:4px;padding:10px}
+      .brandtxt span{display:none}
+      .grid-users{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .userbtn.online{grid-column:span 2}
+      .fields{grid-template-columns:1fr}
+      .dash{grid-template-columns:1fr}
+      .dash .big{min-height:86px}
+      .hero{padding:22px 4px 14px}
+      .card{padding:14px;border-radius:15px}
+      .footerbar{margin:16px -10px -10px;padding:9px 10px calc(9px + env(safe-area-inset-bottom,0))}
+      .hist-head{flex-direction:column}
+    }
+  </style>
+</head>
+<body>
+<div class="app"><div class="shell" id="app"></div></div>
+
+<script>
+const SELLERS = {
+  "1":"1234","2":"2345","3":"3456","4":"4567","5":"5678",
+  "6":"6789","7":"7891","8":"8912","9":"9123","10":"1023","ONLINE":"1515"
+};
+const COLS = ["Servicio","Fecha","Horario","PAX","Adultos","Menores","Proveedor","Punto de encuentro"];
+let currentSeller = sessionStorage.getItem("gv_seller") || "";
+let pendingSeller = "";
+let numero="", fecha="", datos={}, servicios=[], pdfBlob=null, pdfName="";
+let deferredPrompt = null;
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+window.addEventListener("beforeinstallprompt", e => {
+  e.preventDefault(); deferredPrompt = e;
+  const b = document.getElementById("installBtn"); if (b) b.style.display="inline-block";
+});
+window.addEventListener("appinstalled",()=>{ deferredPrompt=null; });
+
+function header(){
+  return `<div class="topbar">
+    <div class="brand"><div class="brandmark">G</div><div class="brandtxt"><b>Gasparotto Viajes</b><span>DESTINOS QUE CONECTAN PERSONAS</span></div></div>
+    ${currentSeller ? `<div style="display:flex;align-items:center;gap:8px"><span class="userchip">${currentSeller==="ONLINE"?"ONLINE":"VENDEDOR "+currentSeller}</span><button class="logout" onclick="logout()">Salir</button></div>`:""}
+  </div>`;
+}
+function render(inner){ $("#app").innerHTML = header()+inner; window.scrollTo(0,0); }
+
+function loginScreen(){
+  currentSeller=""; sessionStorage.removeItem("gv_seller");
+  const buttons = Object.keys(SELLERS).map(s=>`<button class="userbtn ${s==="ONLINE"?"online":""}" onclick="chooseSeller('${s}')">${s==="ONLINE"?"ONLINE":"VENDEDOR "+s}</button>`).join("");
+  render(`<div class="hero"><h1>Gasparotto <span>Viajes</span></h1><p>Seleccioná tu acceso para crear y consultar vouchers.</p></div>
+    <div class="card"><div class="grid-users">${buttons}</div>
+    <div class="notice" style="margin-top:14px">Cada acceso tiene su propio historial guardado en este dispositivo.</div>
+    <button id="installBtn" class="btn gold install" onclick="installApp()">Instalar aplicación</button></div>`);
+}
+function chooseSeller(s){ pendingSeller=s; render(`<div class="hero"><h1>${s==="ONLINE"?"ONLINE":"Vendedor "+s}</h1><p>Ingresá la contraseña para acceder.</p></div>
+  <div class="card loginbox"><div class="password-wrap"><label>Contraseña</label><input id="pass" type="password" inputmode="numeric" autocomplete="current-password" onkeydown="if(event.key==='Enter')login()"><button class="showpass" onclick="togglePass()">Ver</button></div>
+  <div id="loginMsg"></div><div class="actions" style="margin-top:14px"><button class="btn gray" onclick="loginScreen()">Volver</button><button class="btn" onclick="login()">Entrar</button></div></div>`); setTimeout(()=>$("#pass")?.focus(),50);}
+function togglePass(){ const x=$("#pass"); x.type=x.type==="password"?"text":"password"; }
+function login(){
+  const p=$("#pass").value;
+  if(SELLERS[pendingSeller]!==p){ $("#loginMsg").innerHTML=`<div class="error">Contraseña incorrecta.</div>`; return; }
+  currentSeller=pendingSeller; sessionStorage.setItem("gv_seller",currentSeller); dashboard();
+}
+function logout(){ currentSeller=""; sessionStorage.removeItem("gv_seller"); loginScreen(); }
+function dashboard(){
+  if(!currentSeller) return loginScreen();
+  render(`<div class="hero"><h1>Voucherera</h1><p>${currentSeller==="ONLINE"?"Acceso ONLINE":"Vendedor "+currentSeller}</p></div>
+    <div class="dash">
+      <button class="btn big" onclick="formulario()">＋ Nuevo voucher</button>
+      <button class="btn big gold" onclick="historial()">Historial de vouchers</button>
+    </div>
+    <div class="card" style="margin-top:14px"><div class="notice"><b>Proveedor:</b> queda visible solamente dentro del historial administrativo. En el PDF para el cliente se oculta automáticamente.</div>
+    <button id="installBtn" class="btn outline install" onclick="installApp()">Instalar app en este dispositivo</button></div>`);
+}
+async function installApp(){
+  if(!deferredPrompt){ alert("En iPhone: Safari → Compartir → Agregar a pantalla de inicio. En Android: menú del navegador → Instalar aplicación."); return; }
+  deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt=null;
+}
+function sellerKey(){ return currentSeller.replace(/[^A-Z0-9]/gi,"_"); }
+function nextNumber(){
+  let n=0; try{ n=parseInt(localStorage.getItem("gv_counter_"+sellerKey())||"0",10)||0 }catch(e){}
+  return String(n+1).padStart(7,"0");
+}
+function saveNumber(n){ try{ localStorage.setItem("gv_counter_"+sellerKey(),String(parseInt(n,10))) }catch(e){} }
+function dbName(){ return "GasparottoVouchersDB_"+sellerKey(); }
+function openDB(){
+  return new Promise((resolve,reject)=>{
+    const req=indexedDB.open(dbName(),1);
+    req.onupgradeneeded=()=>{
+      const db=req.result;
+      if(!db.objectStoreNames.contains("vouchers")){
+        const st=db.createObjectStore("vouchers",{keyPath:"id",autoIncrement:true});
+        ["numero","pasajero","closer","creado"].forEach(k=>st.createIndex(k,k,{unique:false}));
+      }
+    };
+    req.onsuccess=()=>resolve(req.result); req.onerror=()=>reject(req.error);
+  });
+}
+async function saveVoucher(){
+  const db=await openDB();
+  const record={numero,fecha,creado:new Date().toISOString(),seller:currentSeller,datos,servicios,pdfName,pdfBlob};
+  await new Promise((resolve,reject)=>{const tx=db.transaction("vouchers","readwrite");tx.objectStore("vouchers").add(record);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});
+  db.close();
+}
+async function getVouchers(){
+  const db=await openDB();
+  const items=await new Promise((resolve,reject)=>{const tx=db.transaction("vouchers","readonly");const r=tx.objectStore("vouchers").getAll();r.onsuccess=()=>resolve(r.result||[]);r.onerror=()=>reject(r.error)});
+  db.close(); return items.sort((a,b)=>String(b.creado).localeCompare(String(a.creado)));
+}
+async function getVoucher(id){
+  const db=await openDB();
+  const item=await new Promise((resolve,reject)=>{const tx=db.transaction("vouchers","readonly");const r=tx.objectStore("vouchers").get(Number(id));r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)});
+  db.close();return item;
+}
+function fld(id,label,type="text",extra=""){ return `<div><label for="${id}">${label}</label><input id="${id}" type="${type}" ${extra}></div>`; }
+function rowHTML(){ return `<tr>${COLS.map(c=>`<td><input type="text" aria-label="${c}" ${c==="Fecha"?'inputmode="numeric"':""}></td>`).join("")}</tr>`; }
+
+function formulario(){
+  numero=nextNumber(); fecha=new Date().toLocaleDateString("es-AR");
+  render(`<div class="card" style="margin-top:16px">
+    <h2 style="margin:0;color:var(--navy)">Voucher de Reserva / Confirmación</h2>
+    <div class="pill" style="margin-top:7px">N° ${numero} · ${fecha}</div>
+
+    <div class="section-title">1. DATOS DE LA RESERVA</div>
+    <div class="section fields">${fld("venta","N° de venta")}${fld("agente","Agente")}${fld("promotor","Promotor")}${fld("closer","Closer")}${fld("supervisor","Supervisor")}</div>
+
+    <div class="section-title">2. DATOS DEL PASAJERO</div>
+    <div class="section fields">${fld("pasajero","Nombre y apellido")}${fld("documento","Documento / CPF / Pasaporte")}${fld("telefono","Teléfono","tel",'inputmode="tel"')}${fld("email","Email","email")}
+      <div><label>Idioma</label><select id="idioma"><option>Español</option><option>Portugués</option><option>Inglés</option><option>Otro</option></select></div>
+      ${fld("idioma_otro","Otro idioma")}
+    </div>
+
+    <div class="section-title">3. DETALLE DEL SERVICIO</div>
+    <div class="section"><div class="table-wrap"><table><thead><tr>${COLS.map(c=>`<th>${c}</th>`).join("")}</tr></thead><tbody id="filas">${rowHTML().repeat(3)}</tbody></table></div>
+    <div class="actions" style="margin-top:10px"><button class="btn gray" onclick="addRow()">+ Agregar servicio</button><button class="btn outline" onclick="removeRow()">− Quitar último</button></div>
+    <div class="notice" style="margin-top:10px">El campo <b>Proveedor</b> se guarda en el historial administrativo, pero no aparece en el PDF del cliente.</div></div>
+
+    <div class="section-title">4. PAGO</div>
+    <div class="section fields">
+      <div><label>Forma de pago</label><select id="forma_pago"><option></option><option>Efectivo</option><option>Transferencia</option><option>Tarjeta de crédito</option><option>Tarjeta de débito</option><option>Mercado Pago</option><option>PIX</option></select></div>
+      <div><label>Moneda</label><select id="moneda"><option>USD</option><option>ARS</option><option>BRL</option><option>EUR</option><option>CLP</option><option>Prex</option><option>Otro</option></select></div>
+      ${fld("importe","Importe total")}${fld("saldo","Saldo pendiente","text",'value="0,00"')}
+      <div><label>Estado</label><select id="estado"><option>Pagado</option><option>Pendiente</option></select></div>
+      ${fld("obs_pago","Observaciones de pago")}
+    </div>
+
+    <div class="section-title">5. OBSERVACIONES ESPECIALES</div>
+    <div class="section"><textarea id="observaciones"></textarea></div>
+
+    <div class="footerbar"><button class="btn gray" onclick="dashboard()">Cancelar</button><button class="btn ok" onclick="finalizar()">FINALIZADO</button></div>
+  </div>`);
+}
+function addRow(){ $("#filas").insertAdjacentHTML("beforeend",rowHTML()); }
+function removeRow(){ const t=$("#filas"); if(t.rows.length>1)t.deleteRow(-1); }
+
+async function finalizar(){
+  const v=id=>($("#"+id)?.value||"").trim();
+  datos={};
+  ["venta","agente","promotor","closer","supervisor","pasajero","documento","telefono","email","idioma","idioma_otro","forma_pago","moneda","importe","saldo","estado","obs_pago","observaciones"].forEach(k=>datos[k]=v(k));
+  if(!datos.pasajero) return alert("Completá al menos el nombre y apellido del pasajero.");
+  servicios=[...document.querySelectorAll("#filas tr")].map(tr=>[...tr.querySelectorAll("input")].map(i=>i.value.trim())).filter(r=>r.some(Boolean));
+  if(!servicios.length) return alert("Cargá al menos un servicio.");
+  if(!window.jspdf) return alert("No se pudo cargar el generador de PDF. Verificá tu conexión a Internet.");
+  try{ pdfBlob=generatePDF(); }catch(e){ alert("Error generando PDF: "+e.message); return; }
+  pdfName=`${currentSeller==="ONLINE"?"ONLINE":"Vendedor_"+currentSeller}_Voucher_${numero}_${datos.pasajero.replace(/[^\w]+/g,"_")}.pdf`;
+  saveNumber(numero);
+  try{ await saveVoucher(); }catch(e){ console.error(e); alert("El PDF se generó, pero no se pudo guardar en el historial de este dispositivo.");}
+  listo();
+}
+
+function generatePDF(){
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({unit:"mm",format:"a4"});
+  const M=12,W=186,NAVY=[11,42,74],GOLD=[184,146,58];
+  doc.setFont("helvetica","bold");doc.setFontSize(22);doc.setTextColor(...NAVY);doc.text("Gasparotto",M,20);
+  doc.setTextColor(...GOLD);doc.text("Viajes",M+doc.getTextWidth("Gasparotto "),20);
+  doc.setFontSize(7);doc.setTextColor(...NAVY);doc.text("DESTINOS QUE CONECTAN PERSONAS",M,24);
+
+  doc.setFont("helvetica","normal");doc.setFontSize(8);doc.setTextColor(60);
+  doc.text("Carlos Pellegrini 465, Piso 8 - Buenos Aires",117,13);
+  doc.text("www.gasparottoviajes.com",117,18);
+
+  doc.setFont("helvetica","bold");doc.setFontSize(15);doc.setTextColor(...NAVY);doc.text("Voucher de Reserva / Confirmación de Servicio",M,36);
+  doc.setFontSize(13);doc.setTextColor(...GOLD);doc.text("N° "+numero,M,42);
+  doc.setDrawColor(...NAVY);doc.rect(150,31,48,13);
+  doc.setFontSize(7);doc.setTextColor(90);doc.setFont("helvetica","normal");doc.text("Fecha de emisión",152,35.5);
+  doc.setFontSize(10);doc.setTextColor(0);doc.setFont("helvetica","bold");doc.text(fecha,152,41);
+
+  let y=48;
+  const common={theme:"grid",margin:{left:M,right:M},styles:{fontSize:8,cellPadding:1.8,lineColor:[140,150,165],lineWidth:.2,textColor:20}};
+  const sec=(t,body,cols=1)=>{
+    doc.autoTable({...common,startY:y,head:[[{content:t,colSpan:cols,styles:{fillColor:NAVY,textColor:255,halign:"left"}}]],body:[]});
+    doc.autoTable({...common,startY:doc.lastAutoTable.finalY,body});
+    y=doc.lastAutoTable.finalY+3;
+  };
+  const f=(l,v)=>`${l}\n${v||" "}`;
+  sec("1. DATOS DE LA RESERVA",[[f("N° de venta:",datos.venta),f("Agente:",datos.agente),f("Promotor:",datos.promotor),f("Closer:",datos.closer),f("Supervisor:",datos.supervisor)]],5);
+  sec("2. DATOS DEL PASAJERO",[
+    [f("Nombre y apellido:",datos.pasajero),f("Documento / CPF / Pasaporte:",datos.documento)],
+    [f("Teléfono:",datos.telefono),f("Email:",datos.email)],
+    [{content:f("Idioma:",datos.idioma+(datos.idioma==="Otro"&&datos.idioma_otro?" - "+datos.idioma_otro:"")),colSpan:2}]
+  ],2);
+
+  // PDF CLIENTE: se elimina la columna Proveedor (índice 6)
+  const pdfCols=COLS.filter((_,i)=>i!==6);
+  const pdfRows=servicios.map(r=>r.filter((_,i)=>i!==6));
+  doc.autoTable({...common,startY:y,
+    head:[[{content:"3. DETALLE DEL SERVICIO",colSpan:7,styles:{fillColor:NAVY,textColor:255,halign:"left"}}],pdfCols],
+    body:pdfRows,headStyles:{fontStyle:"bold"},
+    didParseCell:d=>{if(d.section==="head"&&d.row.index===1){d.cell.styles.fillColor=[230,235,242];d.cell.styles.textColor=20;d.cell.styles.halign="center"}},
+    columnStyles:{0:{cellWidth:42},1:{cellWidth:22},2:{cellWidth:18},3:{cellWidth:12},4:{cellWidth:16},5:{cellWidth:16}}
+  });
+  y=doc.lastAutoTable.finalY+3;
+  sec("4. PAGO",[[f("Forma de pago:",datos.forma_pago),f("Moneda:",datos.moneda),f("Importe total:",datos.importe),f("Saldo pendiente:",datos.saldo),f("Estado:",datos.estado),f("Observaciones:",datos.obs_pago)]],6);
+  sec("5. OBSERVACIONES ESPECIALES",[[datos.observaciones||" "]],1);
+  sec("6. VALIDACIÓN Y CONTROL",[["Firma del pasajero (conforme)\n\n\n","Firma de la agencia (confirmación)\n\n\nGasparotto Viajes","Check-in operativo\n[  ] Realizado\n[  ] No se presentó\n[  ] Reprogramado"]],3);
+
+  y=doc.lastAutoTable.finalY+5;
+  if(y>272){doc.addPage();y=15}
+  doc.setDrawColor(...GOLD);doc.setLineWidth(.5);doc.line(M,y,M+W,y);
+  doc.setFont("helvetica","bold");doc.setFontSize(9);doc.setTextColor(...NAVY);doc.text("Presentar este voucher al momento del servicio",M,y+6);
+  doc.setFont("helvetica","normal");doc.setFontSize(7.4);doc.setTextColor(85);
+  doc.text("Luego de realizada la reserva no hay devoluciones.",M,y+11);
+  return doc.output("blob");
+}
+function listo(){
+  render(`<div class="hero"><h1>✔ Voucher listo</h1><p>N° ${esc(numero)} · ${esc(datos.pasajero)}</p></div>
+  <div class="card loginbox"><div class="notice">El voucher quedó guardado en el historial de <b>${currentSeller==="ONLINE"?"ONLINE":"Vendedor "+currentSeller}</b>.</div>
+  <div class="actions" style="margin-top:14px"><button class="btn" onclick="downloadCurrent()">Descargar PDF</button><button class="btn gold" onclick="historial()">Ver historial</button><button class="btn gray" onclick="formulario()">Nuevo voucher</button></div><div id="downloadMsg"></div></div>`);
+}
+async function downloadCurrent(){
+  if(!pdfBlob)return;
+  const file=new File([pdfBlob],pdfName,{type:"application/pdf"});
+  if(navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
+    try{await navigator.share({files:[file],title:pdfName}); $("#downloadMsg").innerHTML=`<div class="success">Listo para guardar o compartir.</div>`;return}catch(e){if(e.name==="AbortError")return}
+  }
+  const url=URL.createObjectURL(pdfBlob);const a=document.createElement("a");a.href=url;a.download=pdfName;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2500);
+}
+function serviceSummary(item){return (item.servicios||[]).map(r=>r?.[0]||"").filter(Boolean).join(", ")}
+function providerSummary(item){
+  return (item.servicios||[]).map(r=>({servicio:r?.[0]||"",proveedor:r?.[6]||""})).filter(x=>x.proveedor)
+    .map(x=>`${esc(x.servicio||"Servicio")}: <b>${esc(x.proveedor)}</b>`).join("<br>");
+}
+async function historial(){
+  let items=[]; try{items=await getVouchers()}catch(e){}
+  render(`<div class="card" style="margin-top:16px"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div><h2 style="margin:0;color:var(--navy)">Historial · ${currentSeller==="ONLINE"?"ONLINE":"Vendedor "+currentSeller}</h2><div class="small">Información administrativa de este dispositivo.</div></div><button class="btn gray" onclick="dashboard()">Volver</button></div>
+  <div class="hist-tools"><input id="searchHist" placeholder="Buscar por N°, pasajero, venta, closer o servicio..." oninput="filterHist()"></div><div id="histList"></div></div>`);
+  window.__hist=items; renderHist(items);
+}
+function renderHist(items){
+  const c=$("#histList");
+  if(!items.length){c.innerHTML=`<div class="notice">Todavía no hay vouchers guardados en este dispositivo para este acceso.</div>`;return}
+  c.innerHTML=items.map(item=>{
+    const d=item.datos||{},srv=serviceSummary(item),prov=providerSummary(item),created=item.creado?new Date(item.creado).toLocaleString("es-AR"):item.fecha||"";
+    return `<div class="hist-card"><div class="hist-head"><div><b>N° ${esc(item.numero)}</b> · ${esc(d.pasajero||"Sin pasajero")}</div><span class="pill">${esc(d.estado||"")}</span></div>
+    <div class="hist-meta">Venta: ${esc(d.venta||"-")} · Closer: ${esc(d.closer||"-")} · Guardado: ${esc(created)}${srv?`<br>Servicio: ${esc(srv)}`:""}</div>
+    ${prov?`<div class="provider-admin"><b>Proveedor · uso administrativo</b><br>${prov}</div>`:""}
+    <div class="actions" style="margin-top:10px"><button class="btn" onclick="downloadHistory(${item.id})">Descargar PDF cliente</button></div></div>`;
+  }).join("");
+}
+function filterHist(){
+  const q=($("#searchHist").value||"").trim().toLowerCase(),all=window.__hist||[];
+  if(!q)return renderHist(all);
+  renderHist(all.filter(item=>{
+    const d=item.datos||{},providers=(item.servicios||[]).map(r=>r?.[6]||"").join(" ");
+    return [item.numero,d.pasajero,d.closer,d.venta,d.estado,serviceSummary(item),providers].join(" ").toLowerCase().includes(q)
+  }));
+}
+async function downloadHistory(id){
+  const item=await getVoucher(id);if(!item?.pdfBlob)return alert("No se encontró el PDF guardado.");
+  pdfBlob=item.pdfBlob;pdfName=item.pdfName||`Voucher_${item.numero}.pdf`;await downloadCurrent();
+}
+if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}))}
+if(currentSeller && SELLERS[currentSeller]) dashboard(); else loginScreen();
+</script>
+</body>
+</html>
