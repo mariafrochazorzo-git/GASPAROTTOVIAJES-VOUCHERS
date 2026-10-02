@@ -122,8 +122,10 @@
 <script>
 const SELLERS = {
   "1":"1234","2":"2345","3":"3456","4":"4567","5":"5678",
-  "6":"6789","7":"7891","8":"8912","9":"9123","10":"1023","ONLINE":"1515"
+  "6":"6789","7":"7891","8":"8912","9":"9123","10":"1023","ONLINE":"1515","ADMIN":"1530"
 };
+const SUPABASE_URL = "https://cruomwbvodkutmrhhwuz.supabase.co";
+const SUPABASE_KEY = "sb_publishable_yEhEHzH2TMJNIjjLuqMCYQ_FBGiPg2Z";
 const COLS = ["Servicio","Fecha","Horario","PAX","Adultos","Menores","Proveedor","Punto de encuentro"];
 let currentSeller = sessionStorage.getItem("gv_seller") || "";
 let pendingSeller = "";
@@ -142,14 +144,14 @@ window.addEventListener("appinstalled",()=>{ deferredPrompt=null; });
 function header(){
   return `<div class="topbar">
     <div class="brand"><div class="brandmark">G</div><div class="brandtxt"><b>Gasparotto Viajes</b><span>DESTINOS QUE CONECTAN PERSONAS</span></div></div>
-    ${currentSeller ? `<div style="display:flex;align-items:center;gap:8px"><span class="userchip">${currentSeller==="ONLINE"?"ONLINE":"VENDEDOR "+currentSeller}</span><button class="logout" onclick="logout()">Salir</button></div>`:""}
+    ${currentSeller ? `<div style="display:flex;align-items:center;gap:8px"><span class="userchip">${currentSeller==="ONLINE"?"ONLINE":currentSeller==="ADMIN"?"ADMINISTRACIÓN":"VENDEDOR "+currentSeller}</span><button class="logout" onclick="logout()">Salir</button></div>`:""}
   </div>`;
 }
 function render(inner){ $("#app").innerHTML = header()+inner; window.scrollTo(0,0); }
 
 function loginScreen(){
   currentSeller=""; sessionStorage.removeItem("gv_seller");
-  const buttons = Object.keys(SELLERS).map(s=>`<button class="userbtn ${s==="ONLINE"?"online":""}" onclick="chooseSeller('${s}')">${s==="ONLINE"?"ONLINE":"VENDEDOR "+s}</button>`).join("");
+  const buttons = Object.keys(SELLERS).map(s=>`<button class="userbtn ${(s==="ONLINE"||s==="ADMIN")?"online":""}" onclick="chooseSeller('${s}')">${s==="ONLINE"?"ONLINE":s==="ADMIN"?"ADMINISTRACIÓN":"VENDEDOR "+s}</button>`).join("");
   render(`<div class="hero"><h1>Gasparotto <span>Viajes</span></h1><p>Seleccioná tu acceso para crear y consultar vouchers.</p></div>
     <div class="card"><div class="grid-users">${buttons}</div>
     <div class="notice" style="margin-top:14px">Cada acceso tiene su propio historial guardado en este dispositivo.</div>
@@ -162,7 +164,7 @@ function togglePass(){ const x=$("#pass"); x.type=x.type==="password"?"text":"pa
 function login(){
   const p=$("#pass").value;
   if(SELLERS[pendingSeller]!==p){ $("#loginMsg").innerHTML=`<div class="error">Contraseña incorrecta.</div>`; return; }
-  currentSeller=pendingSeller; sessionStorage.setItem("gv_seller",currentSeller); dashboard();
+  currentSeller=pendingSeller; sessionStorage.setItem("gv_seller",currentSeller); if(currentSeller==="ADMIN") adminDashboard(); else dashboard();
 }
 function logout(){ currentSeller=""; sessionStorage.removeItem("gv_seller"); loginScreen(); }
 function dashboard(){
@@ -175,6 +177,49 @@ function dashboard(){
     <div class="card" style="margin-top:14px"><div class="notice"><b>Proveedor:</b> queda visible solamente dentro del historial administrativo. En el PDF para el cliente se oculta automáticamente.</div>
     <button id="installBtn" class="btn outline install" onclick="installApp()">Instalar app en este dispositivo</button></div>`);
 }
+
+async function sbRequest(path, options={}){
+  const headers={
+    "apikey":SUPABASE_KEY,
+    "Authorization":"Bearer "+SUPABASE_KEY,
+    "Content-Type":"application/json",
+    ...(options.headers||{})
+  };
+  const res=await fetch(SUPABASE_URL+"/rest/v1/"+path,{...options,headers});
+  if(!res.ok) throw new Error(await res.text() || ("HTTP "+res.status));
+  const ct=res.headers.get("content-type")||"";
+  return ct.includes("application/json") ? await res.json() : await res.text();
+}
+function blobToBase64(blob){
+  return new Promise((resolve,reject)=>{
+    const r=new FileReader();
+    r.onload=()=>resolve(String(r.result).split(",")[1]||"");
+    r.onerror=reject;
+    r.readAsDataURL(blob);
+  });
+}
+function base64ToBlob(base64,type="application/pdf"){
+  const bin=atob(base64||""), arr=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i);
+  return new Blob([arr],{type});
+}
+async function saveVoucherCloud(){
+  const payload={
+    numero,
+    vendedor:currentSeller,
+    fecha,
+    pasajero:datos.pasajero||"",
+    venta:datos.venta||"",
+    closer:datos.closer||"",
+    estado:datos.estado||"",
+    datos,
+    servicios,
+    pdf_base64:pdfBlob ? await blobToBase64(pdfBlob) : null,
+    importante:false
+  };
+  return sbRequest("VOUCHERS",{method:"POST",headers:{"Prefer":"return=representation"},body:JSON.stringify(payload)});
+}
+
 async function installApp(){
   if(!deferredPrompt){ alert("En iPhone: Safari → Compartir → Agregar a pantalla de inicio. En Android: menú del navegador → Instalar aplicación."); return; }
   deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt=null;
@@ -267,7 +312,11 @@ async function finalizar(){
   try{ pdfBlob=generatePDF(); }catch(e){ alert("Error generando PDF: "+e.message); return; }
   pdfName=`${currentSeller==="ONLINE"?"ONLINE":"Vendedor_"+currentSeller}_Voucher_${numero}_${datos.pasajero.replace(/[^\w]+/g,"_")}.pdf`;
   saveNumber(numero);
-  try{ await saveVoucher(); }catch(e){ console.error(e); alert("El PDF se generó, pero no se pudo guardar en el historial de este dispositivo.");}
+  try{ await saveVoucher(); }catch(e){ console.error(e); }
+  try{ await saveVoucherCloud(); }catch(e){
+    console.error("Supabase:",e);
+    alert("El voucher se generó, pero no se pudo guardar en Administración online. Revisá Internet o Supabase.");
+  }
   listo();
 }
 
@@ -339,6 +388,107 @@ async function downloadCurrent(){
   }
   const url=URL.createObjectURL(pdfBlob);const a=document.createElement("a");a.href=url;a.download=pdfName;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2500);
 }
+
+async function adminDashboard(){
+  if(currentSeller!=="ADMIN") return dashboard();
+  render(`<div class="hero"><h1>Administración</h1><p>Todos los vouchers guardados online.</p></div>
+    <div class="card">
+      <div class="hist-tools">
+        <input id="adminSearch" placeholder="Buscar por número, pasajero, vendedor, venta, closer o servicio..." oninput="filterAdmin()">
+        <select id="adminSeller" onchange="filterAdmin()" style="max-width:220px">
+          <option value="">Todos los vendedores</option>
+          ${["1","2","3","4","5","6","7","8","9","10","ONLINE"].map(s=>`<option value="${s}">${s==="ONLINE"?"ONLINE":"Vendedor "+s}</option>`).join("")}
+        </select>
+        <select id="adminImportant" onchange="filterAdmin()" style="max-width:220px">
+          <option value="">Todos</option>
+          <option value="true">⭐ Importantes</option>
+          <option value="false">No importantes</option>
+        </select>
+      </div>
+      <div id="adminList"><div class="notice">Cargando vouchers...</div></div>
+    </div>`);
+  try{
+    const items=await sbRequest("rpc/admin_list_vouchers",{
+      method:"POST",
+      body:JSON.stringify({p_pin:"1530"})
+    });
+    window.__adminItems=items||[];
+    renderAdmin(window.__adminItems);
+  }catch(e){
+    $("#adminList").innerHTML=`<div class="error">No se pudo cargar Administración: ${esc(e.message)}</div>`;
+  }
+}
+function renderAdmin(items){
+  const c=$("#adminList");
+  if(!items.length){c.innerHTML=`<div class="notice">No hay vouchers guardados.</div>`;return;}
+  c.innerHTML=items.map(item=>{
+    const d=item.datos||{};
+    const srv=(item.servicios||[]).map(r=>r?.[0]||"").filter(Boolean).join(", ");
+    const prov=(item.servicios||[]).map(r=>({servicio:r?.[0]||"",proveedor:r?.[6]||""})).filter(x=>x.proveedor)
+      .map(x=>`${esc(x.servicio||"Servicio")}: <b>${esc(x.proveedor)}</b>`).join("<br>");
+    const created=item.created_at?new Date(item.created_at).toLocaleString("es-AR"):item.fecha||"";
+    return `<div class="hist-card">
+      <div class="hist-head"><div><b>N° ${esc(item.numero)}</b> · ${esc(item.pasajero||d.pasajero||"Sin pasajero")}<br>
+      <span class="small">${item.vendedor==="ONLINE"?"ONLINE":"Vendedor "+esc(item.vendedor||"-")} · ${esc(created)}</span></div>
+      <span class="pill">${item.importante?"⭐ IMPORTANTE":esc(item.estado||d.estado||"")}</span></div>
+      <div class="hist-meta">Venta: ${esc(item.venta||d.venta||"-")} · Closer: ${esc(item.closer||d.closer||"-")}${srv?`<br>Servicio: ${esc(srv)}`:""}</div>
+      ${prov?`<div class="provider-admin"><b>Proveedor · uso administrativo</b><br>${prov}</div>`:""}
+      <div class="actions" style="margin-top:10px">
+        <button class="btn ${item.importante?"gray":"gold"}" onclick="toggleImportant(${item.id},${item.importante?"false":"true"})">${item.importante?"Quitar importante":"⭐ Marcar importante"}</button>
+        <button class="btn" onclick="downloadAdminPdf(${item.id})">Descargar PDF</button>
+        <button class="btn danger" onclick="deleteAdminVoucher(${item.id},'${esc(item.numero)}')">Borrar</button>
+      </div></div>`;
+  }).join("");
+}
+function filterAdmin(){
+  const q=($("#adminSearch")?.value||"").trim().toLowerCase();
+  const seller=$("#adminSeller")?.value||"";
+  const imp=$("#adminImportant")?.value||"";
+  const all=window.__adminItems||[];
+  renderAdmin(all.filter(item=>{
+    const d=item.datos||{};
+    const srv=(item.servicios||[]).flat().join(" ");
+    const txt=[item.numero,item.vendedor,item.pasajero,item.venta,item.closer,item.estado,d.pasajero,d.venta,d.closer,srv].join(" ").toLowerCase();
+    if(q&&!txt.includes(q))return false;
+    if(seller&&String(item.vendedor)!==seller)return false;
+    if(imp&&String(!!item.importante)!==imp)return false;
+    return true;
+  }));
+}
+async function toggleImportant(id,val){
+  try{
+    await sbRequest("rpc/admin_toggle_importante",{
+      method:"POST",
+      body:JSON.stringify({p_pin:"1530",p_id:id,p_importante:!!val})
+    });
+    await adminDashboard();
+  }catch(e){alert("No se pudo actualizar: "+e.message)}
+}
+async function deleteAdminVoucher(id,numero){
+  if(!confirm(`¿Borrar definitivamente el voucher ${numero}?`))return;
+  try{
+    await sbRequest("rpc/admin_delete_voucher",{
+      method:"POST",
+      body:JSON.stringify({p_pin:"1530",p_id:id})
+    });
+    await adminDashboard();
+  }
+  catch(e){alert("No se pudo borrar: "+e.message)}
+}
+async function downloadAdminPdf(id){
+  const item=(window.__adminItems||[]).find(x=>Number(x.id)===Number(id));
+  if(!item?.pdf_base64)return alert("Este voucher no tiene PDF guardado.");
+  const blob=base64ToBlob(item.pdf_base64);
+  const name=`Voucher_${item.numero}_${(item.pasajero||"pasajero").replace(/[^\w]+/g,"_")}.pdf`;
+  const file=new File([blob],name,{type:"application/pdf"});
+  if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
+    try{await navigator.share({files:[file],title:name});return}catch(e){if(e.name==="AbortError")return}
+  }
+  const url=URL.createObjectURL(blob),a=document.createElement("a");
+  a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),2500);
+}
+
 function serviceSummary(item){return (item.servicios||[]).map(r=>r?.[0]||"").filter(Boolean).join(", ")}
 function providerSummary(item){
   return (item.servicios||[]).map(r=>({servicio:r?.[0]||"",proveedor:r?.[6]||""})).filter(x=>x.proveedor)
@@ -374,7 +524,7 @@ async function downloadHistory(id){
   pdfBlob=item.pdfBlob;pdfName=item.pdfName||`Voucher_${item.numero}.pdf`;await downloadCurrent();
 }
 if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}))}
-if(currentSeller && SELLERS[currentSeller]) dashboard(); else loginScreen();
+if(currentSeller && SELLERS[currentSeller]) { if(currentSeller==="ADMIN") adminDashboard(); else dashboard(); } else loginScreen();
 </script>
 </body>
 </html>
